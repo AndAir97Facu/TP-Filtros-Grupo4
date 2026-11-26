@@ -1,0 +1,97 @@
+; TP Sintesis de Redes Activas - Grupo 4 - LP Bessel Orden 3
+; Circuito completo: Comparacion AO Ideal vs Macromodelo Conductual TL072
+;
+; INSTRUCCIONES PARA REPLICAR CADA SIMULACION (quitar ';' solo en 1 fuente y 1 analisis):
+;   1) Dejar activa SOLO UNA linea 'Vin ...' (quitar ';' a la elegida y poner ';' a las demas).
+;   2) Dejar activo SOLO UN comando de simulacion ('.ac' o '.tran') quitando su ';'.
+;   3) Por defecto queda activo el Caso 1 (Barrido AC) para entrega y exportacion .txt.
+
+; ==============================================================================
+; FUENTES DE ALIMENTACION Y SENAL DE ENTRADA (dejar activa SOLO UNA 'Vin')
+; ==============================================================================
+Vcc vcc 0 12
+Vee vee 0 -12
+
+; [CASO 1 - ACTIVO] Barrido AC (Magnitud y Fase) + Captura A (Transitorio 500 Hz, 1 Vp):
+Vin in 0 SINE(0 1 500) AC 1
+
+; [CASO 2 - Captura B] Transitorio en banda de rechazo (4000 Hz, 1 Vp):
+;Vin in 0 SINE(0 1 4000) AC 1
+
+; [CASO 3 - Captura C] Transitorio de amplitud maxima sin saturacion (500 Hz, 5 Vp):
+;Vin in 0 SINE(0 5 500) AC 1
+
+; [CASO 4 - Captura D] Respuesta temporal al escalon (0 V a 1 V en t = 1 ms):
+;Vin in 0 PULSE(0 1 1m 1u 1u 10m 20m)
+
+; ==============================================================================
+; RAMA A: CIRCUITO CON OPERACIONAL IDEAL -> Salida: V(vout_ideal)
+; ==============================================================================
+; Etapa 1: Sallen-Key LP 2do orden (K1 = 1)
+R1_id in va_id 6.8k
+R2_id va_id vp1_id 6.8k
+C1_id va_id vo1_id 22n
+C2_id vp1_id 0 12n
+XU1_id vp1_id vo1_id vo1_id OPAMP_IDEAL
+
+; Etapa 2: RC + Seguidor 1er orden (K2 = 1)
+R3_id vo1_id vp2_id 12k
+C3_id vp2_id 0 10n
+XU2_id vp2_id vout_ideal vout_ideal OPAMP_IDEAL
+
+; ==============================================================================
+; RAMA B: CIRCUITO CON MACROMODELO TL072 -> Salida: V(vout)
+; ==============================================================================
+; Etapa 1: Sallen-Key LP 2do orden (K1 = 1)
+R1 in va 6.8k
+R2 va vp1 6.8k
+C1 va vo1 22n
+C2 vp1 0 12n
+XU1 vp1 vo1 vcc vee vo1 TL072_COMERCIAL
+
+; Etapa 2: RC + Seguidor 1er orden (K2 = 1)
+R3 vo1 vp2 12k
+C3 vp2 0 10n
+XU2 vp2 vout vcc vee vout TL072_COMERCIAL
+
+; ==============================================================================
+; SUBCIRCUITOS DE AMPLIFICADORES OPERACIONALES
+; ==============================================================================
+.subckt OPAMP_IDEAL in+ in- out
+E1 out 0 in+ in- 1e6
+.ends OPAMP_IDEAL
+
+; Macromodelo conductual TL072 (GBW = 3 MHz, SR = 13 V/us, Aol = 106 dB, excursion +-10.5 V)
+.subckt TL072_COMERCIAL in+ in- vcc vee out
+Rin in+ in- 1e12
+B_gm 0 n1 I=limit(1e-3*V(in+,in-), -0.69e-3, 0.69e-3)
+Rp n1 0 2e8
+Cp n1 0 53.05p
+B_rail n2 0 V=limit(V(n1), V(vee)+1.5, V(vcc)-1.5)
+Rout n2 out 100
+.ends TL072_COMERCIAL
+
+; ==============================================================================
+; COMANDOS DE SIMULACION (dejar activo SOLO UNO quitando el ';')
+; ==============================================================================
+; [CASO 1 - ACTIVO] Analisis AC (10 Hz a 100 kHz, 200 puntos/decada):
+; Graficar V(vout) y V(vout_ideal) -> File -> Export data as text -> ltspice_ac.txt
+.ac dec 200 10 100k
+
+; [CASO 1B - Captura A] Transitorio banda de paso (activar con Vin SINE 500 Hz, 1 Vp):
+; Graficar V(in) y V(vout)
+;.tran 0 10m 0 5u
+
+; [CASO 2 - Captura B] Transitorio banda de rechazo (activar con Vin SINE 4000 Hz, 1 Vp):
+; Graficar V(in) y V(vout)
+;.tran 0 3m 0 2u
+
+; [CASO 3 - Captura C] Transitorio sin saturacion (activar con Vin SINE 500 Hz, 5 Vp):
+; Graficar V(vout) y V(vo1)
+;.tran 0 10m 0 5u
+
+; [CASO 4 - Captura D] Respuesta al escalon (activar con Vin PULSE 0 a 1 V):
+; Graficar V(in) y V(vout)
+;.tran 0 8m 0 5u
+
+.end
